@@ -10,11 +10,12 @@ from PIL import Image
 from io import BytesIO
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-change-this-in-production'
-app.config['DATABASE'] = 'bookmarks.db'
-app.config['SCREENSHOT_FOLDER'] = 'static/screenshots'
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'your-secret-key-change-this-in-production')
+app.config['DATABASE'] = os.environ.get('DATABASE_PATH', 'data/bookmarks.db')
+app.config['SCREENSHOT_FOLDER'] = os.environ.get('SCREENSHOT_FOLDER', 'static/screenshots')
 
-# Ensure screenshot folder exists
+# Ensure necessary folders exist
+os.makedirs(os.path.dirname(app.config['DATABASE']), exist_ok=True)
 os.makedirs(app.config['SCREENSHOT_FOLDER'], exist_ok=True)
 
 # Database functions
@@ -30,6 +31,7 @@ def close_connection(exception):
     db = getattr(g, '_database', None)
     if db is not None:
         db.close()
+
 
 def init_db():
     with app.app_context():
@@ -55,6 +57,9 @@ def init_db():
         ''')
         db.commit()
 
+# Initialize database on startup
+init_db()
+
 # Login decorator
 def login_required(f):
     @wraps(f)
@@ -71,7 +76,7 @@ def capture_screenshot(url, bookmark_id):
     try:
         # Using a free screenshot API (you can also use screenshot-one.com, apiflash.com, etc.)
         # This example uses screenshot.machine for simplicity
-        screenshot_url = f"https://api.screenshotmachine.com/?key=YOUR_API_KEY&url={url}&dimension=1024x768&format=png"
+        screenshot_url = f"https://api.screenshotmachine.com/?key=YOUR_API_KEY&url={{url}}&dimension=1024x768&format=png"
         
         # Alternative: Try to get favicon or use a placeholder
         # For a simpler approach without external API, we'll create a placeholder
@@ -80,13 +85,13 @@ def capture_screenshot(url, bookmark_id):
         # Create a simple placeholder image with the domain name
         img = Image.new('RGB', (400, 300), color=(73, 109, 137))
         
-        screenshot_filename = f"bookmark_{bookmark_id}.png"
+        screenshot_filename = f"bookmark_{{bookmark_id}}.png"
         screenshot_path = os.path.join(app.config['SCREENSHOT_FOLDER'], screenshot_filename)
         img.save(screenshot_path)
         
-        return f"screenshots/{screenshot_filename}"
+        return f"screenshots/{{screenshot_filename}}"
     except Exception as e:
-        print(f"Error capturing screenshot: {e}")
+        print(f"Error capturing screenshot: {{e}}")
         return None
 
 # Routes
@@ -222,5 +227,4 @@ def delete_bookmark(bookmark_id):
     return redirect(url_for('bookmarks'))
 
 if __name__ == '__main__':
-    init_db()
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
