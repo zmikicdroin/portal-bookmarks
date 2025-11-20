@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "${PORT:-5000}:5000"
+    volumes:
+      - bookmark_data:/app/data
+      - screenshot_data:/app/static/screenshots
+    environment:
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-change-this-secret-key-in-production}
+      - DATABASE_PATH=/app/data/bookmarks.db
+      - SCREENSHOT_FOLDER=/app/static/screenshots
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  bookmark_data:
+    driver: local
+  screenshot_data:
+    driver: local
